@@ -4,5 +4,6 @@ const ctrl = require('../controllers/showController');
 
 router.get('/', ctrl.getShows);
 router.get('/:id/seats', ctrl.getSeats);
+router.get("/seats", ctrl.getAllSeats);
 
 module.exports = router;

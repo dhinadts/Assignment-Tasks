@@ -40,4 +40,5 @@ module.exports = async () => {
       seat_id uuid REFERENCES seats(id)
     );
   `);
+  
 };
