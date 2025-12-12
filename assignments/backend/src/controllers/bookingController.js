@@ -23,5 +23,14 @@ module.exports = {
             return res.status(404).json({ error: 'not found' });
 
         res.json(r.rows[0]);
+    },
+    getBookedSeatsForShow: async (req, res) => {
+        try {
+            const showId = req.params.showId;
+            const result = await bookingModel.getBookedSeatsByShow(showId);
+            res.json(result.rows);
+        } catch (err) {
+            res.status(500).json({ error: 'internal' });
+        }
     }
 };
