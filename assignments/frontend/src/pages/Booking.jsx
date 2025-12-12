@@ -39,7 +39,6 @@ export default function Booking() {
 
       setMessage('Booking ' + res.data.status + ' — id: ' + res.data.id);
 
-      // refresh seats after booking
       const r = await api.get(`/shows/${id}/seats`);
       setSeats(r.data);
       setSelected([]);

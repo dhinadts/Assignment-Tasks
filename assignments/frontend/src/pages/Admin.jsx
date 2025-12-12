@@ -16,7 +16,7 @@ export default function Admin() {
         total_seats: totalSeats,
       });
 
-      setMsg('Created show id: ' + res.data.id);
+      setMsg('Created slot id: ' + res.data.id);
     } catch (err) {
       setMsg('Error creating show');
     }
@@ -24,7 +24,7 @@ export default function Admin() {
 
   return (
     <div style={{ padding: 20 }}>
-      <h2>Admin - Create Show</h2>
+      <h2>Admin - Create Slots</h2>
 
       <form onSubmit={createShow}>
         <div>
