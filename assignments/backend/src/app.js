@@ -13,7 +13,6 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// init DB
 initDb();
 
 app.use('/admin', adminRoutes);

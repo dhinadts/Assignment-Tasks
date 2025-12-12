@@ -3,13 +3,11 @@ const { v4: uuid } = require('uuid');
 const pool = require('../config/db');
 
 module.exports = {
-    // Get all seats for a show
     getSeatsByShow: async (showId) => {
         const result = await seatModel.getSeatsByShow(showId);
         return result.rows;
     },
 
-    // Lock seats for booking (used in booking service)
     lockSeats: async (showId, seatNumbers) => {
         const client = await pool.connect();
         try {
@@ -27,7 +25,6 @@ module.exports = {
         }
     },
 
-    // Mark seats as booked
     markSeatsBooked: async (seatIds) => {
         const client = await pool.connect();
         try {
