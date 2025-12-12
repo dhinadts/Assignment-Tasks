@@ -61,6 +61,15 @@ module.exports = {
             JOIN shows sh ON sh.id = s.show_id
             ORDER BY sh.start_time ASC, s.seat_number::int`
         ),
+    getBookedSeatsByShowId: (showId) =>
+        pool.query(
+            `SELECT seat_number 
+         FROM seats 
+         WHERE show_id = $1 AND status = 'booked'
+         ORDER BY seat_number ASC`,
+            [showId]
+        ),
+
 
     // LOCK available seats for booking
     lockAvailableSeats: (showId, numbers) =>
