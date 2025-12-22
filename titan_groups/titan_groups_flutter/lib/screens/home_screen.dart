@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/api_service.dart';
-import '../models/item.dart';
+import '../models/user.dart';
 
 class HomeScreen extends StatelessWidget {
   final ApiService apiService = ApiService();
@@ -9,7 +9,7 @@ class HomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text("Items List")),
-      body: FutureBuilder<List<Item>>(
+      body: FutureBuilder<List<User>>(
         future: apiService.fetchItems(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
@@ -22,8 +22,8 @@ class HomeScreen extends StatelessWidget {
               itemCount: items.length,
               itemBuilder: (context, index) {
                 return ListTile(
-                  title: Text(items[index].name),
-                  subtitle: Text(items[index].description),
+                  title: Text(items[index].name ?? ''),
+                  subtitle: Text(items[index].bio ?? ''),
                 );
               },
             );

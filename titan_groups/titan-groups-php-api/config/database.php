@@ -4,10 +4,14 @@ $user = "root";
 $password = "";
 $dbname = "flutter_demo";
 
-$conn = new mysqli($host, $user, $password, $dbname);
-
-if ($conn->connect_error) {
-    http_response_code(500);
-    echo json_encode(["error" => "Database connection failed"]);
+try {
+    $dbPath = __DIR__ . '/../storage/database.sqlite';
+    $conn = new PDO("sqlite:" . $dbPath);
+    $conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+} catch (PDOException $e) {
+    echo json_encode([
+        "status" => false,
+        "error" => $e->getMessage()
+    ]);
     exit;
 }
