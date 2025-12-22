@@ -10,7 +10,7 @@ class HomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
     return Scaffold(
-      appBar: AppBar(title: Text("Items List")),
+      appBar: AppBar(title: Text("Users List")),
       body: FutureBuilder<List<User>>(
         future: apiService.fetchItems(),
         builder: (context, snapshot) {
