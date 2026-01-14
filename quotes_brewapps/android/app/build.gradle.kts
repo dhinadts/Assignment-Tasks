@@ -29,7 +29,7 @@ android {
         applicationId = "com.example.quotevault"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        minSdk = flutter.minSdkVersion // flutter.minSdkVersion
+        minSdk = flutter.minSdkVersion //flutter.minSdkVersion // flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
@@ -52,6 +52,8 @@ flutter {
 
 dependencies {
     // ✅ Add this to support desugaring (fixes flutter_local_notifications issue)
-    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+//        coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.4'
+
 
 }
