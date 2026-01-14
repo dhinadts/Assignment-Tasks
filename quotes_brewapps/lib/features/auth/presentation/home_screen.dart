@@ -5,9 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:quotevault/core/providers/theme_provider.dart';
 import 'package:quotevault/features/quotes/data/quote_model.dart';
-import 'package:quotevault/features/quotes/providers/notification_service.dart';
 import 'package:quotevault/features/quotes/providers/quotes_list_provider.dart';
-import 'package:timezone/data/latest.dart' as tz;
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -19,9 +17,7 @@ class HomeScreen extends ConsumerStatefulWidget {
 class _HomeScreenState extends ConsumerState<HomeScreen> {
   bool _isRefreshing = false;
   Quote? _currentQuote;
-  DateTime? _nextQuoteTime;
 
-  final NotificationService _notificationService = NotificationService();
   final List<String> _greetings = [
     'Daily Inspiration',
     'Wisdom Awaits',
@@ -34,11 +30,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    tz.initializeTimeZones();
     _currentGreeting = _greetings[DateTime.now().second % _greetings.length];
-
-    // Initialize notification service
-    _notificationService.initialize();
 
     // Load initial quote after first frame
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -58,9 +50,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       _currentQuote = quotes[randomIndex];
       _isRefreshing = false;
     });
+
+    debugPrint(
+      '📝 New quote set: "${_currentQuote!.text.substring(0, min(30, _currentQuote!.text.length))}..."',
+    );
   }
 
   Future<void> _loadNewQuote() async {
+    debugPrint('🔄 Loading new quote...');
     setState(() => _isRefreshing = true);
     await Future.delayed(const Duration(milliseconds: 300));
     final quotes = ref.read(quoteListProvider);
@@ -69,83 +66,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     } else {
       setState(() => _isRefreshing = false);
     }
-  }
-
-  Future<void> _scheduleNextQuote(DateTime scheduledTime) async {
-    if (_currentQuote == null) return;
-
-    try {
-      // Schedule notification
-      await _notificationService.scheduleDailyNotification(
-        id: 0,
-        title: 'Quote of the Day',
-        body: _currentQuote!.text.length > 50
-            ? '${_currentQuote!.text.substring(0, 47)}...'
-            : _currentQuote!.text,
-        time: TimeOfDay.fromDateTime(scheduledTime),
-      );
-
-      setState(() {
-        _nextQuoteTime = scheduledTime;
-      });
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Next quote scheduled for ${DateFormat('MMM d, hh:mm a').format(scheduledTime)}',
-            ),
-            duration: const Duration(seconds: 3),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to schedule: ${e.toString()}'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 3),
-          ),
-        );
-      }
-    }
-  }
-
-  Future<void> _showScheduleDialog(BuildContext context) async {
-    final now = DateTime.now();
-    final initialDate = DateTime(now.year, now.month, now.day);
-
-    // Default to tomorrow at 8 AM
-    final defaultTime = DateTime(now.year, now.month, now.day + 1, 8, 0);
-    final initialTime = TimeOfDay.fromDateTime(defaultTime);
-
-    final selectedDateTime = await showDatePicker(
-      context: context,
-      initialDate: initialDate.add(const Duration(days: 1)),
-      firstDate: initialDate,
-      lastDate: DateTime(now.year + 1),
-    );
-
-    if (selectedDateTime == null) return;
-
-    final selectedTime = await showTimePicker(
-      context: context,
-      initialTime: initialTime,
-    );
-
-    if (selectedTime == null) return;
-
-    final scheduledDateTime = DateTime(
-      selectedDateTime.year,
-      selectedDateTime.month,
-      selectedDateTime.day,
-      selectedTime.hour,
-      selectedTime.minute,
-    );
-
-    await _scheduleNextQuote(scheduledDateTime);
   }
 
   @override
@@ -275,23 +195,63 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   isSmallScreen,
                 ),
                 SizedBox(height: isSmallScreen ? 20 : 40),
-                // Schedule Button
-                _buildScheduleButton(
+                // All Quotes Button
+                _buildAllQuotesButton(
                   context,
-                  mediaQuery,
                   colorScheme,
                   isSmallScreen,
-                  _currentQuote != null,
                 ),
-                if (_nextQuoteTime != null) ...[
-                  SizedBox(height: isSmallScreen ? 16 : 24),
-                  _buildNextQuoteInfo(isSmallScreen),
-                ],
               ]),
             ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildAllQuotesButton(
+    BuildContext context,
+    ColorScheme colorScheme,
+    bool isSmallScreen,
+  ) {
+    return Column(
+      children: [
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: () => context.push('/quotes'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: colorScheme.secondary,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              padding: EdgeInsets.symmetric(vertical: isSmallScreen ? 16 : 20),
+            ),
+            icon: Icon(
+              Icons.library_books_rounded,
+              size: isSmallScreen ? 20 : 24,
+            ),
+            label: Text(
+              'Browse All Quotes',
+              style: TextStyle(
+                fontSize: isSmallScreen ? 16 : 18,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ),
+        SizedBox(height: isSmallScreen ? 8 : 12),
+        Text(
+          'View and manage your entire collection of quotes',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: isSmallScreen ? 12 : 14,
+            color: Colors.grey[600],
+            fontStyle: FontStyle.italic,
+          ),
+        ),
+      ],
     );
   }
 
@@ -325,7 +285,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Text(
-                'Now',
+                'Random',
                 style: TextStyle(
                   fontSize: isSmallScreen ? 10 : 12,
                   fontWeight: FontWeight.w600,
@@ -465,7 +425,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
                   SizedBox(height: isSmallScreen ? 4 : 8),
                   Text(
-                    DateFormat('MMMM d, yyyy').format(DateTime.now()),
+                    'Updated: ${DateFormat('MMMM d, yyyy - hh:mm a').format(DateTime.now())}',
                     style: TextStyle(
                       fontSize: isSmallScreen ? 10 : 12,
                       color: Colors.grey[600],
@@ -674,113 +634,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  Widget _buildScheduleButton(
-    BuildContext context,
-    MediaQueryData mediaQuery,
-    ColorScheme colorScheme,
-    bool isSmallScreen,
-    bool hasQuote,
-  ) {
-    return Column(
-      children: [
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton.icon(
-            onPressed: hasQuote ? () => _showScheduleDialog(context) : null,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: colorScheme.primary,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              padding: EdgeInsets.symmetric(vertical: isSmallScreen ? 16 : 20),
-            ),
-            icon: Icon(
-              Icons.notifications_active_rounded,
-              size: isSmallScreen ? 20 : 24,
-            ),
-            label: Text(
-              'Schedule Next Quote',
-              style: TextStyle(
-                fontSize: isSmallScreen ? 16 : 18,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-        ),
-        SizedBox(height: isSmallScreen ? 8 : 12),
-        Text(
-          'Schedule when to receive the next quote notification',
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: isSmallScreen ? 12 : 14,
-            color: Colors.grey[600],
-            fontStyle: FontStyle.italic,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildNextQuoteInfo(bool isSmallScreen) {
-    if (_nextQuoteTime == null) return const SizedBox.shrink();
-
-    return Container(
-      padding: EdgeInsets.all(isSmallScreen ? 12 : 16),
-      decoration: BoxDecoration(
-        color: Colors.blue.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.blue.withOpacity(0.3)),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            Icons.schedule_rounded,
-            size: isSmallScreen ? 16 : 20,
-            color: Colors.blue,
-          ),
-          SizedBox(width: isSmallScreen ? 8 : 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Next Quote Scheduled',
-                  style: TextStyle(
-                    fontSize: isSmallScreen ? 12 : 14,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.blue,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  'Will be delivered at ${DateFormat('MMM d, hh:mm a').format(_nextQuoteTime!)}',
-                  style: TextStyle(
-                    fontSize: isSmallScreen ? 10 : 12,
-                    color: Colors.blue[700],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          IconButton(
-            icon: Icon(
-              Icons.cancel_rounded,
-              size: isSmallScreen ? 16 : 20,
-              color: Colors.grey[500],
-            ),
-            onPressed: () {
-              setState(() {
-                _nextQuoteTime = null;
-              });
-              _notificationService.cancel(0);
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
   void _showQuoteDetails(BuildContext context, Quote quote) {
     showModalBottomSheet(
       context: context,
@@ -788,22 +641,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (context) => QuoteDetailsBottomSheet(
-        quote: quote,
-        onScheduleNextQuote: () => _showScheduleDialog(context),
-      ),
+      builder: (context) => QuoteDetailsBottomSheet(quote: quote),
     );
   }
 }
 
 class QuoteDetailsBottomSheet extends ConsumerWidget {
   final Quote quote;
-  final VoidCallback onScheduleNextQuote;
 
   const QuoteDetailsBottomSheet({
     super.key,
     required this.quote,
-    required this.onScheduleNextQuote,
   });
 
   @override
@@ -947,51 +795,26 @@ class QuoteDetailsBottomSheet extends ConsumerWidget {
             isSmallScreen: isSmallScreen,
           ),
           SizedBox(height: isSmallScreen ? 16 : 24),
-          // Action Buttons
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: () => Navigator.pop(context),
-                  style: OutlinedButton.styleFrom(
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    padding: EdgeInsets.symmetric(
-                      vertical: isSmallScreen ? 14 : 16,
-                    ),
-                  ),
-                  child: Text(
-                    'Close',
-                    style: TextStyle(fontSize: isSmallScreen ? 14 : 16),
-                  ),
+          // Close Button
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: colorScheme.primary,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                padding: EdgeInsets.symmetric(
+                  vertical: isSmallScreen ? 14 : 16,
                 ),
               ),
-              SizedBox(width: isSmallScreen ? 8 : 12),
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: onScheduleNextQuote,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: colorScheme.primary,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    padding: EdgeInsets.symmetric(
-                      vertical: isSmallScreen ? 14 : 16,
-                    ),
-                  ),
-                  icon: Icon(
-                    Icons.notifications_active_rounded,
-                    size: isSmallScreen ? 18 : 20,
-                  ),
-                  label: Text(
-                    'Schedule Next',
-                    style: TextStyle(fontSize: isSmallScreen ? 14 : 16),
-                  ),
-                ),
+              child: Text(
+                'Close',
+                style: TextStyle(fontSize: isSmallScreen ? 16 : 18),
               ),
-            ],
+            ),
           ),
         ],
       ),

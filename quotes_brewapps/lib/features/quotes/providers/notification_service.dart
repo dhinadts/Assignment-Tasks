@@ -1,6 +1,8 @@
-import 'dart:io';
+/* import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:intl/intl.dart';
+import 'package:quotevault/features/quotes/providers/quotes_list_provider.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz;
 
@@ -81,18 +83,29 @@ class NotificationService {
   // ANDROID CHANNEL
   // ------------------------------------------------------------
   Future<void> _createAndroidChannel() async {
-    const channel = AndroidNotificationChannel(
+    // Create main channel
+    const mainChannel = AndroidNotificationChannel(
       'daily_quote_channel',
       'Daily Quotes',
       description: 'Daily inspirational quotes',
       importance: Importance.high,
     );
 
-    await _plugin
+    // Create refresh channel
+    const refreshChannel = AndroidNotificationChannel(
+      'quote_refresh_channel',
+      'Quote Refresh',
+      description: 'Refresh quotes at scheduled time',
+      importance: Importance.high,
+    );
+
+    final androidPlugin = _plugin
         .resolvePlatformSpecificImplementation<
           AndroidFlutterLocalNotificationsPlugin
-        >()
-        ?.createNotificationChannel(channel);
+        >();
+
+    await androidPlugin?.createNotificationChannel(mainChannel);
+    await androidPlugin?.createNotificationChannel(refreshChannel);
   }
 
   // ------------------------------------------------------------
@@ -127,6 +140,10 @@ class NotificationService {
       channelDescription: 'Daily inspirational quotes',
       importance: Importance.high,
       priority: Priority.high,
+      showWhen: true,
+      enableVibration: true,
+      playSound: true,
+      autoCancel: true,
     );
 
     const iosDetails = DarwinNotificationDetails(
@@ -153,6 +170,58 @@ class NotificationService {
   }
 
   // ------------------------------------------------------------
+  // QUOTE REFRESH
+  // ------------------------------------------------------------
+  Future<void> scheduleQuoteRefresh({
+    required int id,
+    required DateTime scheduledTime,
+  }) async {
+    try {
+      final tzScheduled = tz.TZDateTime.from(scheduledTime, tz.local);
+
+      const androidDetails = AndroidNotificationDetails(
+        'quote_refresh_channel',
+        'Quote Refresh',
+        channelDescription: 'Refresh quotes at scheduled time',
+        importance: Importance.high,
+        priority: Priority.high,
+        showWhen: true,
+        enableVibration: true,
+        playSound: true,
+        autoCancel: true,
+      );
+
+      const iosDetails = DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
+        badgeNumber: 1,
+      );
+
+      const platformDetails = NotificationDetails(
+        android: androidDetails,
+        iOS: iosDetails,
+        macOS: iosDetails,
+      );
+
+      await _plugin.zonedSchedule(
+        id,
+        'Time for a New Quote!',
+        'Tap to refresh your daily quote',
+        tzScheduled,
+        platformDetails,
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        payload: 'refresh_quote',
+        matchDateTimeComponents: DateTimeComponents.time, // ✅ ONLY HERE
+      );
+
+      debugPrint('✅ Quote refresh scheduled for ${tzScheduled.toLocal()}');
+    } catch (e) {
+      debugPrint('❌ Error scheduling quote refresh: $e');
+    }
+  }
+
+  // ------------------------------------------------------------
   // INSTANT NOTIFICATION
   // ------------------------------------------------------------
   Future<void> showInstantNotification({
@@ -166,12 +235,41 @@ class NotificationService {
         'Daily Quotes',
         importance: Importance.high,
         priority: Priority.high,
+        showWhen: true,
+        enableVibration: true,
+        playSound: true,
+        autoCancel: true,
       ),
-      iOS: DarwinNotificationDetails(),
-      macOS: DarwinNotificationDetails(),
+      iOS: DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
+      ),
+      macOS: DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
+      ),
     );
 
     await _plugin.show(999, title, body, details, payload: payload);
+  }
+
+  // ------------------------------------------------------------
+  // TEST NOTIFICATION (10 seconds)
+  // ------------------------------------------------------------
+  Future<void> scheduleTestNotification() async {
+    final testTime = DateTime.now().add(const Duration(seconds: 10));
+
+    await scheduleDailyNotification(
+      id: 999,
+      title: 'Test - QuoteVault',
+      body:
+          'Test notification working! Time: ${DateFormat('hh:mm a').format(DateTime.now())}',
+      time: TimeOfDay.fromDateTime(testTime),
+    );
+
+    debugPrint('📱 Test notification scheduled for 10 seconds from now');
   }
 
   // ------------------------------------------------------------
@@ -184,8 +282,11 @@ class NotificationService {
   // ------------------------------------------------------------
   // TAP HANDLER
   // ------------------------------------------------------------
+
   void _onNotificationTap(NotificationResponse response) {
-    debugPrint('🔔 Notification tapped: ${response.payload}');
+    if (response.payload == 'refresh_quote') {
+      QuoteRefreshBus.instance.trigger();
+    }
   }
 
   // ------------------------------------------------------------
@@ -193,8 +294,48 @@ class NotificationService {
   // ------------------------------------------------------------
   Future<void> logPendingNotifications() async {
     final pending = await _plugin.pendingNotificationRequests();
+    debugPrint('📋 Pending Notifications (${pending.length}):');
     for (final n in pending) {
-      debugPrint('⏰ Pending: ${n.id} | ${n.title}');
+      debugPrint('  ⏰ ID: ${n.id} | Title: ${n.title}');
     }
   }
+
+  Future<void> scheduleOneTimeNotification({
+    required int id,
+    required String title,
+    required String body,
+    required DateTime scheduledTime,
+    String? payload,
+  }) async {
+    final tzTime = tz.TZDateTime.from(scheduledTime, tz.local);
+
+    const details = NotificationDetails(
+      android: AndroidNotificationDetails(
+        'daily_quote_channel',
+        'Daily Quotes',
+        importance: Importance.high,
+        priority: Priority.high,
+        playSound: true,
+        enableVibration: true,
+      ),
+      iOS: DarwinNotificationDetails(
+        presentAlert: true,
+        presentSound: true,
+        presentBadge: true,
+      ),
+    );
+
+    await _plugin.zonedSchedule(
+      id,
+      title,
+      body,
+      tzTime,
+      details,
+      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
+      // uiLocalNotificationDateInterpretation:
+      // UILocalNotificationDateInterpretation.absoluteTime,
+      payload: payload,
+    );
+  }
 }
+ */
